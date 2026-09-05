@@ -27,7 +27,7 @@ class MessageTrackerCog(commands.Cog):
         self.CH_ZATSUDAN_1 = 0000000000000000000 # 33番用：ざつだん1のID (実際のIDに書き換えてね)
         self.CH_GUSHI = 1545762453814644867       # 34番用：愚痴・発狂のID
         self.CH_X_SENDEN = 0000000000000000000   # 35番用：X宣伝のID (実際のIDに書き換えてね)
-        self.CH_BAUMU_TARGET = 000000000000000000
+        self.CH_BAUMU_TARGET = 1545779503106887760
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -69,7 +69,7 @@ class MessageTrackerCog(commands.Cog):
         
         if baumu_mentioned and channel_id == self.CH_BAUMU_TARGET:
             await ach_cog.unlock_achievement(user, "trash_talk", channel)
-            
+
         # 7. 「うるさい」
         if content.startswith("#") and len(content) >= 15:
             await ach_cog.unlock_achievement(user, "noisy", channel)
