@@ -29,11 +29,10 @@ class AchievementCog(commands.Cog):
         # 解除時の通知メッセージ
         ach_info = ACHIEVEMENTS[achievement_id]
         embed = discord.Embed(
-            title="🏆 実績解除！",
-            description=f"{member.mention} が新しい実績を解除しました！",
+            title=f"実績解除「{ach_info['name']}」",
+            description=f"{member.mention} が解除しました",
             color=discord.Color.gold()
         )
-        embed.add_field(name=ach_info["name"], value=ach_info["description"], inline=False)
         await channel.send(embed=embed)
 
         # 隠し実績（全解除系）の連鎖解除判定
