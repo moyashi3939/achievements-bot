@@ -60,14 +60,12 @@ class MessageTrackerCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
-        if message.author.bot:
-            return
-
-        now = datetime.now(ZoneInfo("Asia/Tokyo"))
-
         # 1. まずスラッシュコマンドの応答（他ボット含む）をチェック
         if message.interaction_metadata:
             user = message.interaction_metadata.user
+            # デバッグ用：本当にコマンド応答を拾えているかターミナルに出力する
+            print(f"[DEBUG] 相互作用メタデータを検知: user={user.name} (bot={user.bot})")
+            
             if not user.bot:
                 channel = message.channel
                 ach_cog = self.bot.get_cog("AchievementCog")
@@ -87,7 +85,11 @@ class MessageTrackerCog(commands.Cog):
                 if ach_cog and cmd_count >= 20:
                     await ach_cog.unlock_achievement(user, "bot_best_friend", channel)
 
-        # 2. 通常のメッセージに対する処理
+        # 2. 通常のメッセージに対する処理（ボットのメッセージはここで弾く）
+        if message.author.bot:
+            return
+
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
         user = message.author
         channel = message.channel
         content = message.content
@@ -116,9 +118,8 @@ class MessageTrackerCog(commands.Cog):
             if user.id not in self.energy_logs:
                 self.energy_logs[user.id] = []
             
-            # 3分以内のログだけフィルタリング
-            self.energy_logs[user.id] = [t for t in self.energy_logs[user.id] if now - t < timedelta(minutes=3)]
-            self.energy_logs[user.id].append(now)
+            self.energy_logs[user.id] = [t for t in self.energy_logs[user.id] if datetime.now() - t < timedelta(minutes=3)]
+            self.energy_logs[user.id].append(datetime.now())
 
             if len(self.energy_logs[user.id]) >= 5:
                 await ach_cog.unlock_achievement(user, "energy_addict", channel)
