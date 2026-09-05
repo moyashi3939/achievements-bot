@@ -107,7 +107,7 @@ class MessageTrackerCog(commands.Cog):
             await ach_cog.unlock_achievement(user, "sound_gamer", channel)
 
         # 28. 「メンション失敗（笑）」
-        if "@" in content and not message.mentions and not message.role_mentions and not message.everyone:
+        if "@" in content and not message.mentions and not message.role_mentions and not message.mention_everyone:
             await ach_cog.unlock_achievement(user, "mention_fail", channel)
 
         # 29. 「淫夢チャンネルはここではないですよ！」 (暴走ch「以外」で「やりますねぇ」)
