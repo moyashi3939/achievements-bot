@@ -1,12 +1,11 @@
-import os
+# main.py
 import discord
-from discord.app_commands.tree import CommandTree
 from discord.ext import commands
-from discord.ext.commands.bot import _default
-from discord.utils import MISSING
+import os
+import asyncpg
 from dotenv import load_dotenv
-from database import create_db_pool
 
+# .env ファイルから環境変数を読み込む
 load_dotenv()
 
 TOKEN = os.getenv("DISCORD_TOKEN")
@@ -17,25 +16,68 @@ class AchievementBot(commands.Bot):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.voice_states = True
-        intents.guilds = True
+        intents.members = True
+
         super().__init__(command_prefix="!", intents=intents)
+        self.db = None
 
     async def setup_hook(self):
-        self.db = await create_db_pool(DATABASE_URL)
+        # 1. PostgreSQL データベース接続プールを初期化
+        try:
+            self.db = await asyncpg.create_pool(DATABASE_URL)
+            print("🚀 PostgreSQL データベースに接続しました。")
+        except Exception as e:
+            print(f"❌ データベース接続エラー: {e}")
 
-        await self.load_extension("cogs.achievement")
-        await self.load_extension("cogs.voice_tracker")
-        await self.load_extension("cogs.message_tracker")
+        # 2. データベースのテーブル（初期テーブル）を作成・確認
+        await self.init_db()
 
-        await self.tree.sync()
-        print("スラッシュコマンドを同期しました。")
+        # 3. 各 Cog の読み込み（スペルミスに注意！）
+        extensions = [
+            "cogs.achievement",
+            "cogs.message_tracker",
+            "cogs.voice_tracker"
+        ]
+        
+        for ext in extensions:
+            try:
+                await self.load_extension(ext)
+                print(f"📦 読み込み成功: {ext}")
+            except Exception as e:
+                print(f"❌ 読み込み失敗: {ext} (エラー: {e})")
+
+        # 4. スラッシュコマンド（App Commands）をDiscordへ同期
+        try:
+            synced = await self.tree.sync()
+            print(f"sync完了: {len(synced)} 個のコマンドを同期しました。")
+        except Exception as e:
+            print(f"❌ コマンド同期エラー: {e}")
+
+    async def init_db(self):
+        """必要なテーブルがなければ作成する"""
+        async with self.db.acquire() as conn:
+            # 実績解除管理テーブル
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    user_id BIGINT,
+                    achievement_id TEXT,
+                    unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (user_id, achievement_id)
+                )
+            """)
+            # VC接続時間累計管理テーブル
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_voice_time (
+                    user_id BIGINT PRIMARY KEY,
+                    total_seconds BIGINT DEFAULT 0
+                )
+            """)
+        print("🛠️ データベースのテーブル初期化が完了しました。")
 
     async def on_ready(self):
-        print(f"Logged in as {self.user} (ID: {self.user.id})")
+        print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
 
+# ボットの起動
 if __name__ == "__main__":
-    if not TOKEN:
-        print("エラー: DISCORD_TOKEN が環境変数に設定されていません。")
-    else:
-        bot = AchievementBot()
-        bot.run(TOKEN)
+    bot = AchievementBot()
+    bot.run(TOKEN)
