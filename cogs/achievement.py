@@ -93,7 +93,7 @@ class AchievementCog(commands.Cog):
         )
         embed.set_thumbnail(url=target_user.display_avatar.url)
         
-        # 進捗状況（例：42 / 39）
+        # 進捗状況
         embed.add_field(
             name="進捗状況（通常実績）",
             value=f"**{unlocked_normal_count} / {total_normal_count}** 達成",
@@ -121,7 +121,7 @@ class AchievementCog(commands.Cog):
                 inline=False
             )
 
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="ranking", description="サーバー内の実績解除数ランキングを表示します")
     async def achievement_ranking(self, interaction: discord.Interaction):
@@ -137,7 +137,7 @@ class AchievementCog(commands.Cog):
             )
 
         if not rows:
-            await interaction.response.send_message("まだ誰も実績を解除していません！", ephemeral=True)
+            await interaction.response.send_message("まだ誰も実績を解除していません！")
             return
 
         desc_lines = []
@@ -211,7 +211,6 @@ class AchievementCog(commands.Cog):
 
     @app_commands.command(name="all_check_url", description="実績管理スプレッドシートのURLを表示します")
     async def all_check_url(self, interaction: discord.Interaction):
-        # ── 【ここにスプレッドシートのURLを貼り付けてください】 ──
         SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/10BCeT24d6KaHDrio1jtdVooZoRr-V80XfWJXdr0X7bM/edit?usp=drivesdk"
         
         embed = discord.Embed(
@@ -219,7 +218,7 @@ class AchievementCog(commands.Cog):
             description=f"進捗や一覧を確認できるスプレッドシートはこちらです：\n[スプレッドシートを開く]({SPREADSHEET_URL})",
             color=discord.Color.purple()
         )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(AchievementCog(bot))
