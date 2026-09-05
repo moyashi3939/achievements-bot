@@ -35,7 +35,7 @@ class VoiceTrackerCog(commands.Cog):
             if member.id in self.voice_sessions:
                 session = self.voice_sessions.pop(member.id)
                 duration = int((now - session['time']).total_seconds())
-                guild = after.channel.guild
+                guild = before.channel.guild
 
                 # 5番：「主食はマイク」 (累計24時間用データベース加算)
                 await self.add_voice_time(member, duration, guild)

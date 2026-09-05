@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 from datetime import datetime, timedelta
 import re
+from zoneinfo import ZoneInfo
 
 class MessageTrackerCog(commands.Cog):
     def __init__(self, bot):
@@ -33,6 +34,38 @@ class MessageTrackerCog(commands.Cog):
     async def on_message(self, message: discord.Message):
         if message.author.bot:
             return
+
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
+
+# 1. まずスラッシュコマンドの応答（他ボット含む）をチェック
+        if message.interaction_metadata:
+            user = message.interaction_metadata.user
+            if not user.bot:
+                channel = message.channel
+                ach_cog = self.bot.get_cog("AchievementCog")
+                
+                async with self.bot.db.acquire() as conn:
+                    await conn.execute(
+                        """
+                        INSERT INTO user_command_counts (user_id, count) VALUES ($1, 1)
+                        ON CONFLICT (user_id) DO UPDATE SET count = user_command_counts.count + 1
+                        """,
+                        user.id
+                    )
+                    cmd_count = await conn.fetchval(
+                        "SELECT count FROM user_command_counts WHERE user_id = $1", user.id
+                    )
+                
+                if ach_cog and cmd_count >= 20:
+                    await ach_cog.unlock_achievement(user, "bot_best_friend", channel)
+
+        # 2. 通常のメッセージに対する処理（ボットのメッセージはここで弾く）
+        if message.author.bot:
+            return
+
+        user = message.author
+        channel = message.channel
+        ach_cog = self.bot.get_cog("AchievementCog")
 
         content = message.content
         user = message.author
@@ -154,24 +187,6 @@ class MessageTrackerCog(commands.Cog):
         # 23. 「夜更かしの民」 (深夜2時～朝4時)
         if 2 <= now.hour < 4:
             await ach_cog.unlock_achievement(user, "night_owl", channel)
-
-        # 他のボットのコマンドや自身のボットのコマンド実行を検知してカウント
-        # message.interaction_metadata が存在する場合、それはスラッシュコマンド等のインタラクションによるものです
-        if message.interaction_metadata and message.interaction_metadata.user.id == user.id:
-            async with self.bot.db.acquire() as conn:
-                await conn.execute(
-                    """
-                    INSERT INTO user_command_counts (user_id, count) VALUES ($1, 1)
-                    ON CONFLICT (user_id) DO UPDATE SET count = user_command_counts.count + 1
-                    """,
-                    user.id
-                )
-                cmd_count = await conn.fetchval(
-                    "SELECT count FROM user_command_counts WHERE user_id = $1", user.id
-                )
-            
-            if cmd_count >= 20:
-                await ach_cog.unlock_achievement(user, "bot_best_friend", channel)
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
