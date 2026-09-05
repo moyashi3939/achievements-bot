@@ -86,6 +86,13 @@ class AchievementBot(commands.Bot):
                     count INT DEFAULT 0
                 )
             """)
+            # ボットへのコマンド実行回数累計テーブル（botの親友用）
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_command_counts (
+                    user_id BIGINT PRIMARY KEY,
+                    count INT DEFAULT 0
+                )
+            """)
         print("🛠️ データベースのテーブル初期化が完了しました。")
 
         async def on_ready(self):

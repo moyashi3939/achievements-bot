@@ -155,6 +155,24 @@ class MessageTrackerCog(commands.Cog):
         if 2 <= now.hour < 4:
             await ach_cog.unlock_achievement(user, "night_owl", channel)
 
+        # 他のボットのコマンドや自身のボットのコマンド実行を検知してカウント
+        # message.interaction_metadata が存在する場合、それはスラッシュコマンド等のインタラクションによるものです
+        if message.interaction_metadata and message.interaction_metadata.user.id == user.id:
+            async with self.bot.db.acquire() as conn:
+                await conn.execute(
+                    """
+                    INSERT INTO user_command_counts (user_id, count) VALUES ($1, 1)
+                    ON CONFLICT (user_id) DO UPDATE SET count = user_command_counts.count + 1
+                    """,
+                    user.id
+                )
+                cmd_count = await conn.fetchval(
+                    "SELECT count FROM user_command_counts WHERE user_id = $1", user.id
+                )
+            
+            if cmd_count >= 20:
+                await ach_cog.unlock_achievement(user, "bot_best_friend", channel)
+
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
         if not payload.guild_id:
