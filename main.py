@@ -23,7 +23,7 @@ class AchievementBot(commands.Bot):
     async def setup_hook(self):
         self.db = await create_db_pool(DATABASE_URL)
 
-        await self.load_extension("cogs.achievemet")
+        await self.load_extension("cogs.achievement")
         await self.load_extension("cogs.voice_tracker")
         await self.load_extension("cogs.message_tracker")
 
