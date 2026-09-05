@@ -10,25 +10,24 @@ class MessageTrackerCog(commands.Cog):
         self.edit_logs = {}
         self.delete_logs = {}
 
-        # ── 【要件対応】10番・12番などの複数キーワード設定場所 ──
-        # アルハラ関連ワード（10番用）
+        # ── 【要件対応】複数キーワード設定場所 ──
         self.alcohol_keywords = ["酒", "ビール", "ストゼロ", "ハイボール", "酎ハイ", "ワイン"] 
-        
-        # 冷笑関連ワード（12番用）
-        self.cold_laugh_keywords = ["...w", "草", "ｗ", "www", "冷笑"]
+        self.cold_laugh_keywords = ["おおw", "うおw", "oow", "uow", "おおｗ", "うおｗ", "うお", "uo","どわーｗ", "どわーw", "どわ-", "どわ-w","dowa-w", "dowa-", "dowaーw","きちーｗ", "きちーw", "kichi-w", "kiti-w", "うぉｗ", "うぉw"]
 
-        # 悪口関連ワード（37番用：ひらがな、漢字、ローマ字対応）
         self.bad_words_patterns = [
-            r"バカ", r"ばか", r"baka",
-            r"クソ", r"くそ", r"kuso",
-            r"カス", r"かす", r"kasu"
+            r"バカ", r"ばか", r"baka",r"馬鹿",
+            r"クソ", r"くそ", r"kuso",r"糞",
+            r"カス", r"かす", r"kasu",
+            r"アホ", r"あほ", r"aho", r"阿呆",
+            r"死ね", r"しね", r"shine", r"4ね",
         ]
 
-        # ── 【要件対応】チャンネルIDの設定場所 ──
-        self.CH_BOSOU = 123456789012345678      # 16番・29番用：暴走チャンネルのID
-        self.CH_ZATSUDAN_1 = 123456789012345678  # 33番用：ざつだん1のID
-        self.CH_GUSHI = 123456789012345678       # 34番用：愚痴・発狂のID
-        self.CH_X_SENDEN = 123456789012345678    # 35番用：X宣伝のID
+        # ── ⚠️ 【重要】ここに正しいDiscordのチャンネルID（数字）をそれぞれ設定してください ──
+        self.CH_BOSOU = 1544692352038477865      # 16番・29番用：暴走チャンネルのID
+        self.CH_ZATSUDAN_1 = 0000000000000000000 # 33番用：ざつだん1のID (実際のIDに書き換えてね)
+        self.CH_GUSHI = 1545762453814644867       # 34番用：愚痴・発狂のID
+        self.CH_X_SENDEN = 0000000000000000000   # 35番用：X宣伝のID (実際のIDに書き換えてね)
+        self.CH_BAUMU_TARGET = 000000000000000000
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
@@ -40,16 +39,21 @@ class MessageTrackerCog(commands.Cog):
         channel = message.channel
         now = datetime.now()
 
+        # スレッド内の場合は親チャンネルのIDも考慮できるようにする
+        channel_id = channel.id
+        if isinstance(channel, discord.Thread) and channel.parent_id:
+            channel_id = channel.parent_id
+
         ach_cog = self.bot.get_cog("AchievementCog")
         if not ach_cog:
             return
 
         # 1. 「あなたは管理者じゃないでしょ？」
-        if user.display_name == "ぴくせる" and "ストゼロ" in content:
+        if user.display_name == "ぴくせる。" and "ストゼロ" in content:
             await ach_cog.unlock_achievement(user, "not_admin", channel)
 
         # 2. 「怒りを買うよ？」
-        if "ぽこでん" in content:
+        if "ぽこden" in content or "ぽこでん" in content:
             await ach_cog.unlock_achievement(user, "buy_anger", channel)
 
         # 3. 「私生活管理者」
@@ -60,17 +64,17 @@ class MessageTrackerCog(commands.Cog):
         if "シルクタッチ強化" in content:
             await ach_cog.unlock_achievement(user, "minecraft_pro", channel)
 
-        # 6. 「ぽい捨てするなよ？」 (@ばうむ ＋ 画像添付)
-        # ※ メンション（@ばうむ）が含まれていて、かつ添付ファイルがあるか判定
+       # 6. 「ぽい捨てするなよ？」 (指定チャンネルでの @ばうむ メンション)
         baumu_mentioned = any(m.name == "ばうむ" or m.display_name == "ばうむ" for m in message.mentions)
-        if baumu_mentioned and len(message.attachments) > 0:
+        
+        if baumu_mentioned and channel_id == self.CH_BAUMU_TARGET:
             await ach_cog.unlock_achievement(user, "trash_talk", channel)
-
+            
         # 7. 「うるさい」
         if content.startswith("#") and len(content) >= 15:
             await ach_cog.unlock_achievement(user, "noisy", channel)
 
-        # 10. 「アルハラすんなよ！！！」 (22時以降に酒関連ワードのいずれか)
+        # 10. 「アルハラすんなよ！！！」 (22時以降に酒関連ワード)
         if now.hour >= 22 and any(kw in content for kw in self.alcohol_keywords):
             await ach_cog.unlock_achievement(user, "no_alcohol_ii", channel)
 
@@ -78,7 +82,7 @@ class MessageTrackerCog(commands.Cog):
         if "わんだほい" in content:
             await ach_cog.unlock_achievement(user, "genki", channel)
 
-        # 12. 「...w」 (冷笑系ワードのいずれか)
+        # 12. 「...w」 (冷笑系ワード)
         if any(kw in content for kw in self.cold_laugh_keywords):
             await ach_cog.unlock_achievement(user, "cold_laugh", channel)
 
@@ -91,7 +95,7 @@ class MessageTrackerCog(commands.Cog):
             await ach_cog.unlock_achievement(user, "hage", channel)
 
         # 16. 「ここは黄昏ではありません」 (暴走ch「以外」で「えらこ掘りたい」)
-        if "えらこ掘りたい" in content and channel.id != self.CH_BOSOU:
+        if "えらこ掘りたい" in content and channel_id != self.CH_BOSOU:
             await ach_cog.unlock_achievement(user, "not_twilight", channel)
 
         # 26. 「アモアスですか？」
@@ -102,41 +106,40 @@ class MessageTrackerCog(commands.Cog):
         if "ゴママヨ" in content:
             await ach_cog.unlock_achievement(user, "sound_gamer", channel)
 
-        # 28. 「メンション失敗（笑）」 ( "@ユーザー名" とテキストで打っているが、実際のメンションになっていない場合)
-        # テキスト内に "@" があるのに、message.mentions が空（または意図したプレーンテキスト）のとき
+        # 28. 「メンション失敗（笑）」
         if "@" in content and not message.mentions and not message.role_mentions and not message.everyone:
             await ach_cog.unlock_achievement(user, "mention_fail", channel)
 
-        # 29. 「淫夢チャンネルはここではないですよ！早く気づいて！」 (暴走機関車聞き専 "以外" で「やりますねぇ」)
-        if "やりますねぇ" in content and channel.id != self.CH_BOSOU:
+        # 29. 「淫夢チャンネルはここではないですよ！」 (暴走ch「以外」で「やりますねぇ」)
+        if "やりますねぇ" in content and channel_id != self.CH_BOSOU:
             await ach_cog.unlock_achievement(user, "wrong_channel", channel)
 
-        # 30. 「再生できてませんよ」 (VCにいない状態で "m!p https://" を打つ)
+        # 30. 「再生できてませんよ」
         if content.startswith("m!p https://"):
             if not user.voice or not user.voice.channel:
                 await ach_cog.unlock_achievement(user, "playback_fail", channel)
 
-        # 31. 「無から始まる物語」 (U+200b = ゼロ幅スペースを単体で打つ)
+        # 31. 「無から始まる物語」
         if content == "\u200b":
             await ach_cog.unlock_achievement(user, "nothing_tale", channel)
 
         # 33. ざつだん1で発言
-        if channel.id == self.CH_ZATSUDAN_1:
+        if channel_id == self.CH_ZATSUDAN_1:
             await ach_cog.unlock_achievement(user, "zatsudan_1", channel)
 
         # 34. 愚痴・発狂で発言
-        if channel.id == self.CH_GUSHI:
+        if channel_id == self.CH_GUSHI:
             await ach_cog.unlock_achievement(user, "vomit", channel)
 
         # 35. X宣伝で発言
-        if channel.id == self.CH_X_SENDEN:
+        if channel_id == self.CH_X_SENDEN:
             await ach_cog.unlock_achievement(user, "twitter_faction", channel)
 
         # 36. 「光ってる？」
         if "ぴくせる" in content:
             await ach_cog.unlock_achievement(user, "shining", channel)
 
-        # 37. 「悪口はダメですよ？」 (ひらがな、漢字、ローマ字の悪口パターンに一致するか正規表現で判定)
+        # 37. 「悪口はダメですよ？」
         if any(re.search(pattern, content, re.IGNORECASE) for pattern in self.bad_words_patterns):
             await ach_cog.unlock_achievement(user, "bad_words", channel)
 
@@ -154,7 +157,6 @@ class MessageTrackerCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
-        # 25. 「誤字ですよ」 (1分以内に2回自分のメッセージを編集)
         if not payload.guild_id:
             return
         guild = self.bot.get_guild(payload.guild_id)
@@ -177,7 +179,6 @@ class MessageTrackerCog(commands.Cog):
 
     @commands.Cog.listener()
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
-        # 隠し実績：黒歴史 (1分以内に3回自分の発言を消す)
         if not payload.guild_id:
             return
         guild = self.bot.get_guild(payload.guild_id)
