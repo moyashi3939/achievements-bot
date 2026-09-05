@@ -199,5 +199,88 @@ class MessageTrackerCog(commands.Cog):
             if ach_cog and channel:
                 await ach_cog.unlock_achievement(user, "black_history", channel)
 
+        # ストーカー判定用（user_id: [(target_id, timestamp), ...]）
+        self.stalker_logs = {}
+
+        @commands.Cog.listener()
+        async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+         if not payload.guild_id or payload.user_id == self.bot.user.id:
+            return
+
+        guild = self.bot.get_guild(payload.guild_id)
+        if not guild:
+            return
+
+        member = guild.get_member(payload.user_id)
+        channel = guild.get_channel(payload.channel_id)
+        if not member or not channel:
+            return
+
+        ach_cog = self.bot.get_cog("AchievementCog")
+        if not ach_cog:
+            return
+
+        # メッセージの作者を取得するために対象メッセージを取得
+        try:
+            target_channel = guild.get_channel(payload.channel_id)
+            target_message = await target_channel.fetch_message(payload.message_id)
+            target_author_id = target_message.author.id if target_message else None
+        except Exception:
+            target_author_id = None
+
+        now = datetime.now()
+
+        async with self.bot.db.acquire() as conn:
+            # ── 1. 「絵文字職人」(emoji_artisan): カスタム絵文字を累計100回使う ──
+            # payload.emoji.is_custom_emoji() でカスタム絵文字か判定
+            if payload.emoji.is_custom_emoji():
+                await conn.execute(
+                    """
+                    INSERT INTO user_emoji_counts (user_id, count) VALUES ($1, 1)
+                    ON CONFLICT (user_id) DO UPDATE SET count = user_emoji_counts.count + 1
+                    """,
+                    member.id
+                )
+                emoji_count = await conn.fetchval(
+                    "SELECT count FROM user_emoji_counts WHERE user_id = $1", member.id
+                )
+                if emoji_count >= 100:
+                    await ach_cog.unlock_achievement(member, "emoji_artisan", channel)
+
+            # ── 2. 「共感の嵐」(empathy_storm): 他メンバーのメッセージにリアクション50回 ──
+            if target_author_id and target_author_id != member.id:
+                await conn.execute(
+                    """
+                    INSERT INTO user_reaction_counts (user_id, count) VALUES ($1, 1)
+                    ON CONFLICT (user_id) DO UPDATE SET count = user_reaction_counts.count + 1
+                    """,
+                    member.id
+                )
+                reaction_count = await conn.fetchval(
+                    "SELECT count FROM user_reaction_counts WHERE user_id = $1", member.id
+                )
+                if reaction_count >= 50:
+                    await ach_cog.unlock_achievement(member, "empathy_storm", channel)
+
+        # ── 3. 「ストーカー」(stalker): 同じ人へ24時間以内に合計10回（返信 or リアクション） ──
+        if target_author_id and target_author_id != member.id:
+            if member.id not in self.stalker_logs:
+                self.stalker_logs[member.id] = []
+            
+            # 24時間以内のログだけ残す
+            self.stalker_logs[member.id] = [
+                (t_id, t) for t_id, t in self.stalker_logs[member.id] 
+                if now - t < timedelta(hours=24)
+            ]
+            self.stalker_logs[member.id].append((target_author_id, now))
+
+            # 同じターゲットに対する回数をカウント
+            target_counts = {}
+            for t_id, _ in self.stalker_logs[member.id]:
+                target_counts[t_id] = target_counts.get(t_id, 0) + 1
+                if target_counts[t_id] >= 10:
+                    await ach_cog.unlock_achievement(member, "stalker", channel)
+                    break
+
 async def setup(bot):
     await bot.add_cog(MessageTrackerCog(bot))

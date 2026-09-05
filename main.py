@@ -72,10 +72,24 @@ class AchievementBot(commands.Bot):
                     total_seconds BIGINT DEFAULT 0
                 )
             """)
+            # 絵文字使用回数累計テーブル（絵文字職人・21番用）
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_emoji_counts (
+                    user_id BIGINT PRIMARY KEY,
+                    count INT DEFAULT 0
+                )
+            """)
+            # 他メンバーへのリアクション回数累計テーブル（共感の嵐・20番用）
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_reaction_counts (
+                    user_id BIGINT PRIMARY KEY,
+                    count INT DEFAULT 0
+                )
+            """)
         print("🛠️ データベースのテーブル初期化が完了しました。")
 
-    async def on_ready(self):
-        print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
+        async def on_ready(self):
+          print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
 
 # ボットの起動
 if __name__ == "__main__":
