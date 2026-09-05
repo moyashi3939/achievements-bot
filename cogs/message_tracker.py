@@ -10,9 +10,12 @@ class MessageTrackerCog(commands.Cog):
         self.bot = bot
         self.edit_logs = {}
         self.delete_logs = {}
+        self.stalker_logs = {}  # user_id: [(target_id, timestamp), ...]
+        self.energy_logs = {}   # user_id: [timestamp, ...]
 
         # ── 【要件対応】複数キーワード設定場所 ──
         self.alcohol_keywords = ["酒", "ビール", "ストゼロ", "ハイボール", "酎ハイ", "ワイン"] 
+        self.energy_keywords = ["エンドリ", "エナドリ", "モンスター", "レッドブル", "ZONe"]
         self.cold_laugh_keywords = ["おおw", "うおw", "oow", "uow", "おおｗ", "うおｗ", "うお", "uo","どわーｗ", "どわーw", "どわ-", "どわ-w","dowa-w", "dowa-", "dowaーw","きちーｗ", "きちーw", "kichi-w", "kiti-w", "うぉｗ", "うぉw"]
 
         self.bad_words_patterns = [
@@ -30,6 +33,31 @@ class MessageTrackerCog(commands.Cog):
         self.CH_X_SENDEN = 0000000000000000000   # 35番用：X宣伝のID (実際のIDに書き換えてね)
         self.CH_BAUMU_TARGET = 1545779503106887760
 
+    async def check_stalker(self, member: discord.Member, target_author_id: int, channel):
+        if not target_author_id or target_author_id == member.id:
+            return
+
+        now = datetime.now()
+        if member.id not in self.stalker_logs:
+            self.stalker_logs[member.id] = []
+
+        # 24時間以内のログだけ残す
+        self.stalker_logs[member.id] = [
+            (t_id, t) for t_id, t in self.stalker_logs[member.id] 
+            if now - t < timedelta(hours=24)
+        ]
+        self.stalker_logs[member.id].append((target_author_id, now))
+
+        # 同じターゲットに対する回数をカウント
+        target_counts = {}
+        for t_id, _ in self.stalker_logs[member.id]:
+            target_counts[t_id] = target_counts.get(t_id, 0) + 1
+            if target_counts[t_id] >= 10:
+                ach_cog = self.bot.get_cog("AchievementCog")
+                if ach_cog:
+                    await ach_cog.unlock_achievement(member, "stalker", channel)
+                break
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
         if message.author.bot:
@@ -37,7 +65,7 @@ class MessageTrackerCog(commands.Cog):
 
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
 
-# 1. まずスラッシュコマンドの応答（他ボット含む）をチェック
+        # 1. まずスラッシュコマンドの応答（他ボット含む）をチェック
         if message.interaction_metadata:
             user = message.interaction_metadata.user
             if not user.bot:
@@ -59,27 +87,41 @@ class MessageTrackerCog(commands.Cog):
                 if ach_cog and cmd_count >= 20:
                     await ach_cog.unlock_achievement(user, "bot_best_friend", channel)
 
-        # 2. 通常のメッセージに対する処理（ボットのメッセージはここで弾く）
-        if message.author.bot:
-            return
-
+        # 2. 通常のメッセージに対する処理
         user = message.author
         channel = message.channel
-        ach_cog = self.bot.get_cog("AchievementCog")
-
         content = message.content
-        user = message.author
-        channel = message.channel
-        now = datetime.now()
+        ach_cog = self.bot.get_cog("AchievementCog")
+        if not ach_cog:
+            return
 
         # スレッド内の場合は親チャンネルのIDも考慮できるようにする
         channel_id = channel.id
         if isinstance(channel, discord.Thread) and channel.parent_id:
             channel_id = channel.parent_id
 
-        ach_cog = self.bot.get_cog("AchievementCog")
-        if not ach_cog:
-            return
+        # ストーカー判定用（返信の検知）
+        if message.reference and message.reference.message_id:
+            try:
+                target_msg = message.reference.cached_message
+                if not target_msg:
+                    target_msg = await channel.fetch_message(message.reference.message_id)
+                if target_msg and target_msg.author:
+                    await self.check_stalker(user, target_msg.author.id, channel)
+            except Exception:
+                pass
+
+        # ── 「エナカス」(energy_addict): 最初の発言から3分以内にエンドリに関する発言を5個する ──
+        if any(kw in content for kw in self.energy_keywords):
+            if user.id not in self.energy_logs:
+                self.energy_logs[user.id] = []
+            
+            # 3分以内のログだけフィルタリング
+            self.energy_logs[user.id] = [t for t in self.energy_logs[user.id] if now - t < timedelta(minutes=3)]
+            self.energy_logs[user.id].append(now)
+
+            if len(self.energy_logs[user.id]) >= 5:
+                await ach_cog.unlock_achievement(user, "energy_addict", channel)
 
         # 1. 「あなたは管理者じゃないでしょ？」
         if user.display_name == "ぴくせる。" and "ストゼロ" in content:
@@ -97,9 +139,8 @@ class MessageTrackerCog(commands.Cog):
         if "シルクタッチ強化" in content:
             await ach_cog.unlock_achievement(user, "minecraft_pro", channel)
 
-       # 6. 「ぽい捨てするなよ？」 (指定チャンネルでの @ばうむ メンション)
+        # 6. 「ぽい捨てするなよ？」 (指定チャンネルでの @ばうむ メンション)
         baumu_mentioned = any(m.name == "ばうむ" or m.display_name == "ばうむ" for m in message.mentions)
-        
         if baumu_mentioned and channel_id == self.CH_BAUMU_TARGET:
             await ach_cog.unlock_achievement(user, "trash_talk", channel)
 
@@ -232,12 +273,9 @@ class MessageTrackerCog(commands.Cog):
             if ach_cog and channel:
                 await ach_cog.unlock_achievement(user, "black_history", channel)
 
-        # ストーカー判定用（user_id: [(target_id, timestamp), ...]）
-        self.stalker_logs = {}
-
-        @commands.Cog.listener()
-        async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
-         if not payload.guild_id or payload.user_id == self.bot.user.id:
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
+        if not payload.guild_id or payload.user_id == self.bot.user.id:
             return
 
         guild = self.bot.get_guild(payload.guild_id)
@@ -254,18 +292,18 @@ class MessageTrackerCog(commands.Cog):
             return
 
         # メッセージの作者を取得するために対象メッセージを取得
+        target_author_id = None
         try:
             target_channel = guild.get_channel(payload.channel_id)
-            target_message = await target_channel.fetch_message(payload.message_id)
-            target_author_id = target_message.author.id if target_message else None
+            if target_channel:
+                target_message = await target_channel.fetch_message(payload.message_id)
+                if target_message and target_message.author:
+                    target_author_id = target_message.author.id
         except Exception:
-            target_author_id = None
-
-        now = datetime.now()
+            pass
 
         async with self.bot.db.acquire() as conn:
             # ── 1. 「絵文字職人」(emoji_artisan): カスタム絵文字を累計100回使う ──
-            # payload.emoji.is_custom_emoji() でカスタム絵文字か判定
             if payload.emoji.is_custom_emoji():
                 await conn.execute(
                     """
@@ -297,23 +335,7 @@ class MessageTrackerCog(commands.Cog):
 
         # ── 3. 「ストーカー」(stalker): 同じ人へ24時間以内に合計10回（返信 or リアクション） ──
         if target_author_id and target_author_id != member.id:
-            if member.id not in self.stalker_logs:
-                self.stalker_logs[member.id] = []
-            
-            # 24時間以内のログだけ残す
-            self.stalker_logs[member.id] = [
-                (t_id, t) for t_id, t in self.stalker_logs[member.id] 
-                if now - t < timedelta(hours=24)
-            ]
-            self.stalker_logs[member.id].append((target_author_id, now))
-
-            # 同じターゲットに対する回数をカウント
-            target_counts = {}
-            for t_id, _ in self.stalker_logs[member.id]:
-                target_counts[t_id] = target_counts.get(t_id, 0) + 1
-                if target_counts[t_id] >= 10:
-                    await ach_cog.unlock_achievement(member, "stalker", channel)
-                    break
+            await self.check_stalker(member, target_author_id, channel)
 
 async def setup(bot):
     await bot.add_cog(MessageTrackerCog(bot))
