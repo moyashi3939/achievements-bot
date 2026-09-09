@@ -121,7 +121,6 @@ class MessageTrackerCog(commands.Cog):
                 pass
 
         # ── 「深夜の独り言」(midnight_monologue) の判定 ──
-        # 条件：誰もいないチャンネル（前回の発言から1時間以上経過 ＆ 直前の発言者が自分以外）
         if channel_id in self.channel_activity:
             last_info = self.channel_activity[channel_id]
             time_diff = now - last_info["last_time"]
@@ -130,7 +129,6 @@ class MessageTrackerCog(commands.Cog):
             if time_diff >= timedelta(hours=1) and last_author != user.id:
                 await ach_cog.unlock_achievement(user, "midnight_monologue", channel)
         else:
-            # ボット起動後、そのチャンネルで初のメッセージの場合も条件を満たすとみなす
             await ach_cog.unlock_achievement(user, "midnight_monologue", channel)
 
         # チャンネルの最終アクティビティを更新
@@ -139,13 +137,13 @@ class MessageTrackerCog(commands.Cog):
             "last_author_id": user.id
         }
 
-        # ── 「おそよう」(osoyou): 13時以降にその日初めて挨拶メッセージを投稿する ──
+        # ── 「おそよう」(osoyou) ──
         if now.hour >= 13 and any(kw in content.lower() for kw in self.greeting_keywords):
             if self.osoyou_logs.get(user.id) != today:
                 self.osoyou_logs[user.id] = today
                 await ach_cog.unlock_achievement(user, "osoyou", channel)
 
-        # ── 「エナカス」(energy_addict): 最初の発言から3分以内にエンドリに関する発言を2個する ──
+        # ── 「エナカス」(energy_addict) ──
         if any(kw in content for kw in self.energy_keywords):
             if user.id not in self.energy_logs:
                 self.energy_logs[user.id] = []
@@ -156,7 +154,7 @@ class MessageTrackerCog(commands.Cog):
             if len(self.energy_logs[user.id]) >= 2:
                 await ach_cog.unlock_achievement(user, "energy_addict", channel)
 
-        # ── 「酒カス」(no_alcohol_ii): 22時以降に3分以内で酒関連ワードを2個発言する ──
+        # ── 「酒カス」(no_alcohol_ii) ──
         if now.hour >= 22 and any(kw in content for kw in self.alcohol_keywords):
             if user.id not in self.alcohol_logs:
                 self.alcohol_logs[user.id] = []
@@ -167,97 +165,75 @@ class MessageTrackerCog(commands.Cog):
             if len(self.alcohol_logs[user.id]) >= 2:
                 await ach_cog.unlock_achievement(user, "no_alcohol_ii", channel)
 
-        # 1. 「あなたは管理者じゃないでしょ？」
+        # 各種実績トリガー
         if user.display_name == "ぴくせる。" and "ストゼロ" in content:
             await ach_cog.unlock_achievement(user, "not_admin", channel)
 
-        # 2. 「怒りを買うよ？」
         if "ぽこden" in content or "ぽこでん" in content:
             await ach_cog.unlock_achievement(user, "buy_anger", channel)
 
-        # 3. 「私生活管理者」
         if "ピコハン" in content and "ぴくせる" in content:
             await ach_cog.unlock_achievement(user, "private_life_manager", channel)
 
-        # 6. 「ぽい捨てするなよ？」 (指定チャンネルでの @ばうむ メンション)
         baumu_mentioned = any(m.name == "ばうむ" or m.display_name == "ばうむ" for m in message.mentions)
         if baumu_mentioned and channel_id == self.CH_BAUMU_TARGET:
             await ach_cog.unlock_achievement(user, "trash_talk", channel)
 
-        # 7. 「うるさい」
         if content.startswith("#") and len(content) >= 15:
             await ach_cog.unlock_achievement(user, "noisy", channel)
 
-        # 11. 「げんき！！！！」
         if "わんだほい" in content:
             await ach_cog.unlock_achievement(user, "genki", channel)
 
-        # 12. 「...w」 (冷笑系ワード)
         if any(kw in content for kw in self.cold_laugh_keywords):
             await ach_cog.unlock_achievement(user, "cold_laugh", channel)
 
-        # 13. 「もやし」
         if "1" in content:
             await ach_cog.unlock_achievement(user, "moyashi", channel)
 
-        # 14. 「はげちゃうわ」
         if "はげ" in content:
             await ach_cog.unlock_achievement(user, "hage", channel)
 
-        # 16. 「ここは黄昏ではありません」 (暴走ch「以外」で「えらこ掘りたい」)
         if "えらこ掘りたい" in content and channel_id != self.CH_BOSOU:
             await ach_cog.unlock_achievement(user, "not_twilight", channel)
 
-        # 26. 「アモアスですか？」
         if "人狼" in content:
             await ach_cog.unlock_achievement(user, "among_us", channel)
 
-        # 27. 「貴様ッ…音ゲーマーだなっ！！」
         if "ゴママヨ" in content:
             await ach_cog.unlock_achievement(user, "sound_gamer", channel)
 
-        # 28. 「メンション失敗（笑）」
         if "@" in content and not message.mentions and not message.role_mentions and not message.mention_everyone:
             await ach_cog.unlock_achievement(user, "mention_fail", channel)
 
-        # 29. 「淫夢チャンネルはここではないですよ！」 (暴走ch「以外」で「やりますねぇ」)
         if "やりますねぇ" in content and channel_id != self.CH_BOSOU:
             await ach_cog.unlock_achievement(user, "wrong_channel", channel)
 
-        # 30. 「再生できてませんよ」
         if content.startswith("m!p https://"):
             if not user.voice or not user.voice.channel:
                 await ach_cog.unlock_achievement(user, "playback_fail", channel)
 
-        # 33. ざつだん1で発言
         if channel_id == self.CH_ZATSUDAN_1:
             await ach_cog.unlock_achievement(user, "zatsudan_1", channel)
 
-        # 34. 愚痴・発狂で発言
         if channel_id == self.CH_GUSHI:
             await ach_cog.unlock_achievement(user, "vomit", channel)
 
-        # 35. X宣伝で発言
         if channel_id == self.CH_X_SENDEN:
             await ach_cog.unlock_achievement(user, "twitter_faction", channel)
 
-        # 36. 「光ってる？」
         if "ぴくせる" in content:
             await ach_cog.unlock_achievement(user, "shining", channel)
 
-        # 37. 「悪口はダメですよ？」
         if any(re.search(pattern, content, re.IGNORECASE) for pattern in self.bad_words_patterns):
             await ach_cog.unlock_achievement(user, "bad_words", channel)
 
-        # 38. 「り……隣人！」
         if "しりとり" in content:
             await ach_cog.unlock_achievement(user, "shiritori", channel)
 
-        # 39. 「そんなダイス使わんやろ」
         if "100d100000" in content:
             await ach_cog.unlock_achievement(user, "dice_madness", channel)
 
-        # 23. 「夜更かしの民」 (深夜2時～朝4時)
         if 2 <= now.hour < 4:
             await ach_cog.unlock_achievement(user, "night_owl", channel)
 
@@ -330,8 +306,8 @@ class MessageTrackerCog(commands.Cog):
                 target_message = await target_channel.fetch_message(payload.message_id)
                 if target_message and target_message.author:
                     target_author_id = target_message.author.id
-            except Exception:
-                pass
+        except Exception:
+            pass
 
         async with self.bot.db.acquire() as conn:
             if payload.emoji.is_custom_emoji():
