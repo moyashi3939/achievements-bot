@@ -38,7 +38,7 @@ ACHIEVEMENTS = {
     "you_free": {"name": "あなた暇なの？", "description": "VCに24時間入る", "is_hidden": False},
     
     # チャンネル指定系
-    "zatsudan_1": {"name": "れっつづだん！", "description": "ざつだん1で発言する", "is_hidden": False},
+    "zatsudan_1": {"name": "れっつざつだん！", "description": "ざつだん1で発言する", "is_hidden": False},
     "vomit": {"name": "辛いことは全部吐き出して", "description": "愚痴・発狂で発言する", "is_hidden": False},
     "twitter_faction": {"name": "Twitter派だよね？", "description": "X宣伝で発言する", "is_hidden": False},
     
