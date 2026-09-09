@@ -36,11 +36,11 @@ class MessageTrackerCog(commands.Cog):
         self.greeting_keywords = ["おは", "おはよう", "おはよ", "goodmorning", "good morning"]
 
         # ── ⚠️ 【重要】ここに正しいDiscordのチャンネルID（数字）をそれぞれ設定してください ──
-        self.CH_BOSOU = 1544692352038477865      # 16番・29番用：暴走チャンネルのID
-        self.CH_ZATSUDAN_1 = 0000000000000000000 # 33番用：ざつだん1のID (実際のIDに書き換えてね)
-        self.CH_GUSHI = 1545762453814644867       # 34番用：愚痴・発狂のID
-        self.CH_X_SENDEN = 0000000000000000000   # 35番用：X宣伝のID (実際のIDに書き換えてね)
-        self.CH_BAUMU_TARGET = 1545779503106887760
+        self.CH_BOSOU = 1478343447843700848      # 16番・29番用：暴走チャンネルのID
+        self.CH_ZATSUDAN_1 = 1475833949765767180 # 33番用：ざつだん1のID (実際のIDに書き換えてね)
+        self.CH_GUSHI = 1476030491722514585       # 34番用：愚痴・発狂のID
+        self.CH_X_SENDEN = 1479196681760276703   # 35番用：X宣伝のID (実際のIDに書き換えてね)
+        self.CH_BAUMU_TARGET = 1478693054104735810
 
     async def check_stalker(self, member: discord.Member, target_author_id: int, channel):
         if not target_author_id or target_author_id == member.id:
