@@ -42,6 +42,10 @@ class AchievementCog(commands.Cog):
         self.bot = bot
 
     async def unlock_achievement(self, member: discord.Member, achievement_id: str, channel: discord.TextChannel):
+        print(f"[DEBUG] unlock_achievement called: user={member.display_name}, ach={achievement_id}") # ←これを追加
+        if achievement_id not in ACHIEVEMENTS:
+            print(f"[DEBUG] achievement_id not in ACHIEVEMENTS: {achievement_id}")
+            return
         """実績を解除する共通メソッド"""
         if achievement_id not in ACHIEVEMENTS:
             return
