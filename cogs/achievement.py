@@ -249,7 +249,7 @@ class AchievementCog(commands.Cog):
                 
                 await interaction.response.send_message(f"🗑️ {user.mention} から実績 `{achievement_id}` を剥奪しました。", ephemeral=True)
 
-    @app_commands.command(name="admin_reset_db", description="【オーナー限定】DBに保存されている実績データをすべて削除します")
+    @app_commands.command(name="admin_reset_db", description="【オーナー限定】DBに保存されている実績・カウントデータをすべて初期化します")
     async def admin_reset_db(self, interaction: discord.Interaction):
         app_info = await self.bot.application_info()
         if interaction.user.id != app_info.owner.id:
@@ -257,11 +257,16 @@ class AchievementCog(commands.Cog):
             return
 
         async with self.bot.db.acquire() as conn:
+            # 関連するすべての記録テーブルを削除
             await conn.execute("DELETE FROM user_achievements")
+            await conn.execute("DELETE FROM user_command_counts")
+            await conn.execute("DELETE FROM user_emoji_counts")
+            await conn.execute("DELETE FROM user_reaction_counts")
+            # 他にもトラッキング用のテーブル（ボイス接続時間など）があればここに追加できます
 
         embed = discord.Embed(
-            title="⚠️ DBデータ初期化完了",
-            description="`user_achievements` テーブルのすべての実績データを削除しました。",
+            title="⚠️ DBデータ完全初期化完了",
+            description="実績解除記録およびすべての累積カウントデータを削除しました。",
             color=discord.Color.red()
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)

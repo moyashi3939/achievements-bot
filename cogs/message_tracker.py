@@ -194,7 +194,7 @@ class MessageTrackerCog(commands.Cog):
         if "はげ" in content:
             await ach_cog.unlock_achievement(user, "hage", channel)
 
-        if "えらこ掘りたい" in content and channel_id != self.CH_BOSOU:
+        if "えらこほりたい" in content and channel_id != self.CH_BOSOU:
             await ach_cog.unlock_achievement(user, "not_twilight", channel)
 
         if "人狼" in content:
