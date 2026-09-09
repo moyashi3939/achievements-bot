@@ -59,18 +59,24 @@ class AchievementCog(commands.Cog):
                 member.id, achievement_id
             )
 
-        # 解除時の通知メッセージ（3行目に条件を追加）
+        # 解除時の通知メッセージ
         ach_info = ACHIEVEMENTS[achievement_id]
         embed = discord.Embed(
             title=f"実績解除「{ach_info['name']}」",
             description=f"{member.mention} が解除しました\n\n**解除条件:** {ach_info['description']}",
             color=discord.Color.gold()
         )
-        await channel.send(embed=embed)
+        try:
+            await channel.send(embed=embed)
+        except Exception:
+            pass
 
-        await self.check_meta_achievements(member, channel)
+        # 隠し実績の連鎖解除判定（自身がメタ実績の場合は無限ループ防止のためスキップ）
+        if achievement_id not in ["all_unlock_q", "you_lose"]:
+            await self.check_meta_achievements(member, channel)
 
     async def check_meta_achievements(self, member: discord.Member, channel: discord.TextChannel):
+        """全解除系の条件を満たしているかチェック"""
         async with self.bot.db.acquire() as conn:
             rows = await conn.fetch(
                 "SELECT achievement_id FROM user_achievements WHERE user_id = $1",
@@ -78,12 +84,15 @@ class AchievementCog(commands.Cog):
             )
         unlocked_ids = {r["achievement_id"] for r in rows}
 
-        normal_ach_ids = {aid for aid, ach in ACHIEVEMENTS.items() if not ach.get("is_hidden", False)}
-        all_ach_ids = set(ACHIEVEMENTS.keys())
+        # メタ実績（all_unlock_q, you_lose）を除外した通常実績・全実績のIDセットを作成
+        normal_ach_ids = {aid for aid, ach in ACHIEVEMENTS.items() if not ach.get("is_hidden", False) and aid not in ["all_unlock_q", "you_lose"]}
+        all_ach_ids = {aid for aid in ACHIEVEMENTS.keys() if aid not in ["all_unlock_q", "you_lose"]}
 
+        # 1. 「全実績解除？」 (通常実績をすべて解除)
         if normal_ach_ids.issubset(unlocked_ids) and "all_unlock_q" not in unlocked_ids:
             await self.unlock_achievement(member, "all_unlock_q", channel)
 
+        # 2. 「負けました」 (隠し含む全実績を解除 - メタ実績自体は除く全数)
         if all_ach_ids.issubset(unlocked_ids) and "you_lose" not in unlocked_ids:
             await self.unlock_achievement(member, "you_lose", channel)
 
@@ -112,7 +121,6 @@ class AchievementCog(commands.Cog):
             if aid in unlocked_ids:
                 desc_list.append(f"✅ **{ach['name']}** - {ach['description']}")
 
-        # 1ページあたり5個に分割
         chunk_size = 5
         chunks = [desc_list[i:i + chunk_size] for i in range(0, len(desc_list), chunk_size)]
         if not chunks:
@@ -246,7 +254,6 @@ class AchievementCog(commands.Cog):
 
         async with self.bot.db.acquire() as conn:
             await conn.execute("DELETE FROM user_achievements")
-            # トラッキング用のカウントデータも一緒に初期化したい場合は追加可能ですが、まずは実績データのみ削除します
 
         embed = discord.Embed(
             title="⚠️ DBデータ初期化完了",
