@@ -121,15 +121,17 @@ class MessageTrackerCog(commands.Cog):
                 pass
 
         # ── 「深夜の独り言」(midnight_monologue) の判定 ──
-        if channel_id in self.channel_activity:
-            last_info = self.channel_activity[channel_id]
-            time_diff = now - last_info["last_time"]
-            last_author = last_info["last_author_id"]
-            
-            if time_diff >= timedelta(hours=1) and last_author != user.id:
+        # ── 「深夜の独り言」(midnight_monologue) の判定 ──
+        if 0 <= now.hour < 4:
+            if channel_id in self.channel_activity:
+                last_info = self.channel_activity[channel_id]
+                time_diff = now - last_info["last_time"]
+                last_author = last_info["last_author_id"]
+                
+                if time_diff >= timedelta(hours=1) and last_author != user.id:
+                    await ach_cog.unlock_achievement(user, "midnight_monologue", channel)
+            else:
                 await ach_cog.unlock_achievement(user, "midnight_monologue", channel)
-        else:
-            await ach_cog.unlock_achievement(user, "midnight_monologue", channel)
 
         # チャンネルの最終アクティビティを更新
         self.channel_activity[channel_id] = {
