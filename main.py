@@ -93,10 +93,18 @@ class AchievementBot(commands.Bot):
                     count INT DEFAULT 0
                 )
             """)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_interactions (
+                    id SERIAL PRIMARY KEY,
+                    actor_id BIGINT NOT NULL,
+                    target_id BIGINT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL
+                )
+            """)
         print("🛠️ データベースのテーブル初期化が完了しました。")
 
-        async def on_ready(self):
-          print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
+    async def on_ready(self):
+        print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
 
 # ボットの起動
 if __name__ == "__main__":

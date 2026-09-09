@@ -1,7 +1,7 @@
 # cogs/message_tracker.py
 import discord
 from discord.ext import commands
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import re
 from zoneinfo import ZoneInfo
 
@@ -12,6 +12,12 @@ class MessageTrackerCog(commands.Cog):
         self.delete_logs = {}
         self.stalker_logs = {}  # user_id: [(target_id, timestamp), ...]
         self.energy_logs = {}   # user_id: [timestamp, ...]
+        self.alcohol_logs = {}  # user_id: [timestamp, ...]
+        self.osoyou_logs = {}   # user_id: date (最後に「おそよう」を解除した日付)
+        
+        # ── 【深夜の独り言用】チャンネルごとの最後のメッセージ情報 ──
+        # channel_id: {"last_time": datetime, "last_author_id": int}
+        self.channel_activity = {}
 
         # ── 【要件対応】複数キーワード設定場所 ──
         self.alcohol_keywords = ["酒", "ビール", "ストゼロ", "ハイボール", "酎ハイ", "ワイン"] 
@@ -25,6 +31,9 @@ class MessageTrackerCog(commands.Cog):
             r"アホ", r"あほ", r"aho", r"阿呆",
             r"死ね", r"しね", r"shine", r"4ね",
         ]
+
+        # 13時以降の挨拶ワード（大文字小文字を区別せず判定するため小文字で定義）
+        self.greeting_keywords = ["おは", "おはよう", "おはよ", "goodmorning", "good morning"]
 
         # ── ⚠️ 【重要】ここに正しいDiscordのチャンネルID（数字）をそれぞれ設定してください ──
         self.CH_BOSOU = 1544692352038477865      # 16番・29番用：暴走チャンネルのID
@@ -63,9 +72,6 @@ class MessageTrackerCog(commands.Cog):
         # 1. まずスラッシュコマンドの応答（他ボット含む）をチェック
         if message.interaction_metadata:
             user = message.interaction_metadata.user
-            # デバッグ用：本当にコマンド応答を拾えているかターミナルに出力する
-            print(f"[DEBUG] 相互作用メタデータを検知: user={user.name} (bot={user.bot})")
-            
             if not user.bot:
                 channel = message.channel
                 ach_cog = self.bot.get_cog("AchievementCog")
@@ -90,6 +96,7 @@ class MessageTrackerCog(commands.Cog):
             return
 
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
+        today = now.date()
         user = message.author
         channel = message.channel
         content = message.content
@@ -113,16 +120,52 @@ class MessageTrackerCog(commands.Cog):
             except Exception:
                 pass
 
-        # ── 「エナカス」(energy_addict): 最初の発言から3分以内にエンドリに関する発言を5個する ──
+        # ── 「深夜の独り言」(midnight_monologue) の判定 ──
+        # 条件：誰もいないチャンネル（前回の発言から1時間以上経過 ＆ 直前の発言者が自分以外）
+        if channel_id in self.channel_activity:
+            last_info = self.channel_activity[channel_id]
+            time_diff = now - last_info["last_time"]
+            last_author = last_info["last_author_id"]
+            
+            if time_diff >= timedelta(hours=1) and last_author != user.id:
+                await ach_cog.unlock_achievement(user, "midnight_monologue", channel)
+        else:
+            # ボット起動後、そのチャンネルで初のメッセージの場合も条件を満たすとみなす
+            await ach_cog.unlock_achievement(user, "midnight_monologue", channel)
+
+        # チャンネルの最終アクティビティを更新
+        self.channel_activity[channel_id] = {
+            "last_time": now,
+            "last_author_id": user.id
+        }
+
+        # ── 「おそよう」(osoyou): 13時以降にその日初めて挨拶メッセージを投稿する ──
+        if now.hour >= 13 and any(kw in content.lower() for kw in self.greeting_keywords):
+            if self.osoyou_logs.get(user.id) != today:
+                self.osoyou_logs[user.id] = today
+                await ach_cog.unlock_achievement(user, "osoyou", channel)
+
+        # ── 「エナカス」(energy_addict): 最初の発言から3分以内にエンドリに関する発言を2個する ──
         if any(kw in content for kw in self.energy_keywords):
             if user.id not in self.energy_logs:
                 self.energy_logs[user.id] = []
             
-            self.energy_logs[user.id] = [t for t in self.energy_logs[user.id] if datetime.now() - t < timedelta(minutes=3)]
-            self.energy_logs[user.id].append(datetime.now())
+            self.energy_logs[user.id] = [t for t in self.energy_logs[user.id] if now - t < timedelta(minutes=3)]
+            self.energy_logs[user.id].append(now)
 
-            if len(self.energy_logs[user.id]) >= 5:
+            if len(self.energy_logs[user.id]) >= 2:
                 await ach_cog.unlock_achievement(user, "energy_addict", channel)
+
+        # ── 「酒カス」(no_alcohol_ii): 22時以降に3分以内で酒関連ワードを2個発言する ──
+        if now.hour >= 22 and any(kw in content for kw in self.alcohol_keywords):
+            if user.id not in self.alcohol_logs:
+                self.alcohol_logs[user.id] = []
+            
+            self.alcohol_logs[user.id] = [t for t in self.alcohol_logs[user.id] if now - t < timedelta(minutes=3)]
+            self.alcohol_logs[user.id].append(now)
+
+            if len(self.alcohol_logs[user.id]) >= 2:
+                await ach_cog.unlock_achievement(user, "no_alcohol_ii", channel)
 
         # 1. 「あなたは管理者じゃないでしょ？」
         if user.display_name == "ぴくせる。" and "ストゼロ" in content:
@@ -136,10 +179,6 @@ class MessageTrackerCog(commands.Cog):
         if "ピコハン" in content and "ぴくせる" in content:
             await ach_cog.unlock_achievement(user, "private_life_manager", channel)
 
-        # 4. 「マインクラフトプロ？」
-        if "シルクタッチ強化" in content:
-            await ach_cog.unlock_achievement(user, "minecraft_pro", channel)
-
         # 6. 「ぽい捨てするなよ？」 (指定チャンネルでの @ばうむ メンション)
         baumu_mentioned = any(m.name == "ばうむ" or m.display_name == "ばうむ" for m in message.mentions)
         if baumu_mentioned and channel_id == self.CH_BAUMU_TARGET:
@@ -148,10 +187,6 @@ class MessageTrackerCog(commands.Cog):
         # 7. 「うるさい」
         if content.startswith("#") and len(content) >= 15:
             await ach_cog.unlock_achievement(user, "noisy", channel)
-
-        # 10. 「アルハラすんなよ！！！」 (22時以降に酒関連ワード)
-        if now.hour >= 22 and any(kw in content for kw in self.alcohol_keywords):
-            await ach_cog.unlock_achievement(user, "no_alcohol_ii", channel)
 
         # 11. 「げんき！！！！」
         if "わんだほい" in content:
@@ -193,10 +228,6 @@ class MessageTrackerCog(commands.Cog):
         if content.startswith("m!p https://"):
             if not user.voice or not user.voice.channel:
                 await ach_cog.unlock_achievement(user, "playback_fail", channel)
-
-        # 31. 「無から始まる物語」
-        if content == "\u200b":
-            await ach_cog.unlock_achievement(user, "nothing_tale", channel)
 
         # 33. ざつだん1で発言
         if channel_id == self.CH_ZATSUDAN_1:
@@ -292,7 +323,6 @@ class MessageTrackerCog(commands.Cog):
         if not ach_cog:
             return
 
-        # メッセージの作者を取得するために対象メッセージを取得
         target_author_id = None
         try:
             target_channel = guild.get_channel(payload.channel_id)
@@ -300,11 +330,10 @@ class MessageTrackerCog(commands.Cog):
                 target_message = await target_channel.fetch_message(payload.message_id)
                 if target_message and target_message.author:
                     target_author_id = target_message.author.id
-        except Exception:
-            pass
+            except Exception:
+                pass
 
         async with self.bot.db.acquire() as conn:
-            # ── 1. 「絵文字職人」(emoji_artisan): カスタム絵文字を累計100回使う ──
             if payload.emoji.is_custom_emoji():
                 await conn.execute(
                     """
@@ -319,7 +348,6 @@ class MessageTrackerCog(commands.Cog):
                 if emoji_count >= 100:
                     await ach_cog.unlock_achievement(member, "emoji_artisan", channel)
 
-            # ── 2. 「共感の嵐」(empathy_storm): 他メンバーのメッセージにリアクション50回 ──
             if target_author_id and target_author_id != member.id:
                 await conn.execute(
                     """
@@ -334,7 +362,6 @@ class MessageTrackerCog(commands.Cog):
                 if reaction_count >= 50:
                     await ach_cog.unlock_achievement(member, "empathy_storm", channel)
 
-        # ── 3. 「ストーカー」(stalker): 同じ人へ24時間以内に合計10回（返信 or リアクション） ──
         if target_author_id and target_author_id != member.id:
             await self.check_stalker(member, target_author_id, channel)
 
