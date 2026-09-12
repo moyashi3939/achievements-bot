@@ -2,6 +2,7 @@
 import discord
 from discord.ext import commands
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 class VoiceTrackerCog(commands.Cog):
     def __init__(self, bot):
@@ -13,7 +14,7 @@ class VoiceTrackerCog(commands.Cog):
         if member.bot:
             return
 
-        now = datetime.now()
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
 
         # VC参加時
         if before.channel is None and after.channel is not None:
@@ -26,33 +27,57 @@ class VoiceTrackerCog(commands.Cog):
             if 0 <= now.hour < 4:
                 ach_cog = self.bot.get_cog("AchievementCog")
                 if ach_cog:
-                    ch = after.channel.guild.system_channel or (after.channel.guild.text_channels[0] if after.channel.guild.text_channels else None)
+                    # 接続中のVCチャンネルを送信先にする（VCテキストチャット対応）
+                    ch = after.channel or after.channel.guild.system_channel or (after.channel.guild.text_channels[0] if after.channel.guild.text_channels else None)
                     if ch:
                         await ach_cog.unlock_achievement(member, "midnight_talker", ch)
 
-        # VC退出時
+            # 63番：「8時だョ！全員集合」 (土曜日20時00分ちょうどにVCに6人以上いる状態)
+            if now.weekday() == 5 and now.hour == 20 and now.minute == 0:
+                if len(after.channel.members) >= 6:
+                    ach_cog = self.bot.get_cog("AchievementCog")
+                    if ach_cog:
+                        ch = after.channel or after.channel.guild.system_channel or (after.channel.guild.text_channels[0] if after.channel.guild.text_channels else None)
+                        if ch:
+                            for m in after.channel.members:
+                                if not m.bot:
+                                    await ach_cog.unlock_achievement(m, "everyone_8pm", ch)
+
+        # VC状態変更時（ミュートを解除したらフラグをFalseにする）
+        elif before.channel is not None and after.channel is not None:
+            if member.id in self.voice_sessions:
+                current_mute = after.self_mute or after.mute
+                if not current_mute:
+                    self.voice_sessions[member.id]['mute'] = False
+
+        # VC退出時（退出時は直前にいた before.channel を参照）
         elif before.channel is not None and after.channel is None:
             if member.id in self.voice_sessions:
                 session = self.voice_sessions.pop(member.id)
                 duration = int((now - session['time']).total_seconds())
                 guild = before.channel.guild
+                target_ch = before.channel
 
                 # 5番：「主食はマイク」 (累計24時間用データベース加算)
-                await self.add_voice_time(member, duration, guild)
+                await self.add_voice_time(member, duration, guild, target_ch)
 
                 ach_cog = self.bot.get_cog("AchievementCog")
                 if ach_cog:
-                    ch = guild.system_channel or (guild.text_channels[0] if guild.text_channels else None)
+                    ch = target_ch or guild.system_channel or (guild.text_channels[0] if guild.text_channels else None)
                     if ch:
-                        # 24番：「サイレントサポーター」 (ミュートのまま1時間=3600秒VC接続)
+                        # 24番：「サイレントサポーター」 (ずっとミュートのまま1時間=3600秒VC接続)
                         if session['mute'] and duration >= 3600:
                             await ach_cog.unlock_achievement(member, "silent_supporter", ch)
+
+                        # 62番：「CV未実装」 (ずっとミュートのまま2時間=7200秒VC接続)
+                        if session['mute'] and duration >= 7200:
+                            await ach_cog.unlock_achievement(member, "cv_unimpl", ch)
 
                         # 32番：「あなた暇なの？」 (連続接続24時間 = 86400秒以上)
                         if duration >= 86400:
                             await ach_cog.unlock_achievement(member, "you_free", ch)
 
-    async def add_voice_time(self, member: discord.Member, duration: int, guild: discord.Guild):
+    async def add_voice_time(self, member: discord.Member, duration: int, guild: discord.Guild, target_ch):
         async with self.bot.db.acquire() as conn:
             await conn.execute(
                 """
@@ -71,7 +96,7 @@ class VoiceTrackerCog(commands.Cog):
         if total >= 86400:
             ach_cog = self.bot.get_cog("AchievementCog")
             if ach_cog:
-                ch = guild.system_channel or (guild.text_channels[0] if guild.text_channels else None)
+                ch = target_ch or guild.system_channel or (guild.text_channels[0] if guild.text_channels else None)
                 if ch:
                     await ach_cog.unlock_achievement(member, "staple_is_mic", ch)
 
