@@ -226,7 +226,7 @@ class MessageTrackerCog(commands.Cog):
         if "ノーツが抜けた" in content:
             await ach_cog.unlock_achievement(user, "dont_run", channel)
 
-        if "哺乳瓶をかかえた酒カスのホイ中退が行く酔っぱらい日記" in content:
+        if "哺乳瓶をかかえた酒かすのホイ中退が行く酔っぱらい日記" in content:
             await ach_cog.unlock_achievement(user, "what_diary", channel)
 
         # 66, 67, 68: maimai系
