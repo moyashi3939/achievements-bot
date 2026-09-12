@@ -400,7 +400,7 @@ class MessageTrackerCog(commands.Cog):
                 await ach_cog.unlock_achievement(user, "no_alcohol_ii", channel)
 
         # ── 画像から追加された隠し実績の判定群 ──
-        if self.bot.user in message.mentions:
+        if "@憧憬管理委員会" in content:
             await ach_cog.unlock_achievement(user, "minecraft_suru", channel)
 
         if "限界を超えた先にある不屈の精神" in content:
