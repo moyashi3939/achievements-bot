@@ -104,11 +104,9 @@ class AchievementBot(commands.Bot):
         print("🛠️ データベースのテーブル初期化が完了しました。")
 
     async def on_ready(self):
+        # ログイン完了のログ出力とカスタムステータス設定をまとめる
         print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
-
-        async def on_ready(self):
-        # 起動時のカスタムステータス設定
-         await self.change_presence(activity=discord.CustomActivity(name="ver.1.0.3"))
+        await self.change_presence(activity=discord.CustomActivity(name="ver.1.0.3"))
 
 # ボットの起動
 if __name__ == "__main__":
