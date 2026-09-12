@@ -297,7 +297,7 @@ class AchievementCog(commands.Cog):
         )
         await interaction.response.send_message(embed=embed)
 
-    @app_commands.command(name='質問', description='指定したチャンネルに質問を送信します。')
+    @app_commands.command(name='request', description='質問を送信します。')
     @app_commands.describe(content='送信する質問内容を入力してください')
     async def ask(self, interaction: discord.Interaction, content: str):
         target_channel = self.bot.get_channel(TARGET_CHANNEL_ID)
