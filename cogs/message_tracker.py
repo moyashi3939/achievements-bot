@@ -167,7 +167,7 @@ class MessageTrackerCog(commands.Cog):
             await ach_cog.unlock_achievement(user, "i_know_nothing", channel)
 
         # 47: 神への反逆 (実績botへの返信)
-        if target_is_bot:
+        if "@Acievements Bot" in content:
             await ach_cog.unlock_achievement(user, "rebellion_god", channel)
 
         # 48: たーまやー
@@ -226,6 +226,9 @@ class MessageTrackerCog(commands.Cog):
         if "ノーツが抜けた" in content:
             await ach_cog.unlock_achievement(user, "dont_run", channel)
 
+        if "哺乳瓶をかかえた酒カスのホイ中退が行く酔っ払い日記" in content:
+            await ach_cog.unlock_achievement(user, "what_diary", channel)
+
         # 66, 67, 68: maimai系
         if "maimai" in content.lower():
             await ach_cog.unlock_achievement(user, "public_washer", channel)
@@ -235,11 +238,11 @@ class MessageTrackerCog(commands.Cog):
             await ach_cog.unlock_achievement(user, "gekichumai", channel)
 
         # 69: お嬢じゃないなり
-        if "お嬢" in content or "ゆーと姫" in content:
+        if "お嬢" in content or "ゆーと嬢" in content:
             await ach_cog.unlock_achievement(user, "ojou_janai", channel)
 
         # 70: folern
-        if "コンスィーヤ" in content:
+        if "ｺﾝｽｨｰﾔ" in content:
             await ach_cog.unlock_achievement(user, "folern", channel)
 
         # 71: Happybirthday!!!!
@@ -403,7 +406,7 @@ class MessageTrackerCog(commands.Cog):
         if "限界を超えた先にある不屈の精神" in content:
             await ach_cog.unlock_achievement(user, "tasogare_shoukei", channel)
 
-        if "コンスィーヤ" in content:  
+        if "ｺﾝｽｨｰﾔwwﾚｯwﾄｩwwﾊwﾘｰwwﾃﾞｨwwwｲwﾃﾞｨwwkﾄwｴwﾗwwwｺｰｽﾞｨﾝwwwﾊﾟwwwﾃﾞｨwwｱwﾒｲwwwﾃﾞｨwwｼｭ↑wｶﾞｰwｺﾝﾌﾙｰｧwwwwﾚｯwwﾃｨwwwﾊwﾒｲｯwwwﾃｨwwwﾙｰﾝwwwﾔwwﾒwﾃﾞｨwｸﾗｷﾓwwwｲﾝwwﾅﾅｧ↑wwｲwwﾄwｷｨｨ↑↑ww" in content:  
             await ach_cog.unlock_achievement(user, "folern_kanzen", channel)
 
         async with self.bot.db.acquire() as conn:
