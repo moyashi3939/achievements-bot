@@ -106,6 +106,11 @@ class AchievementBot(commands.Bot):
     async def on_ready(self):
         print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
 
+        async def on_ready(self):
+        # 起動時のカスタムステータス設定
+         await self.change_presence(activity=discord.CustomActivity(name="ver.1.0.3"))
+        print(f"✨ ログイン完了: {self.user} (ID: {self.user.id})")
+
 # ボットの起動
 if __name__ == "__main__":
     bot = AchievementBot()
