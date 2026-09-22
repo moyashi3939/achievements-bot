@@ -101,6 +101,20 @@ class AchievementBot(commands.Bot):
                     created_at TIMESTAMPTZ NOT NULL
                 )
             """)
+            # テキストメッセージ送信回数累計テーブル (黄昏時の憧憬。チュートリアルフィニッシュ用)
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_total_messages (
+                    user_id BIGINT PRIMARY KEY,
+                    count INT DEFAULT 0
+                )
+            """)
+            # テキストメッセージ最終送信日記憶テーブル
+            await conn.execute("""
+                CREATE TABLE IF NOT EXISTS user_last_message (
+                    user_id BIGINT PRIMARY KEY,
+                    last_sent TIMESTAMPTZ NOT NULL
+                )
+            """)
         print("🛠️ データベースのテーブル初期化が完了しました。")
 
     async def on_ready(self):
